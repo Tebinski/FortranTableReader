@@ -51,7 +51,7 @@ No existing Python library (including `pandas.read_fwf`) handles all of these ro
 Given a block of text (header + data), produce a `Table(header, rows)`:
 
 ```python
-from flatparse.fixed_width import FixedWidthParser
+from flatparse.parsers.fixed_width import FixedWidthParser
 
 block = """ENGINE_ID   FLOW_RATE   TEMP
 ENG-001     123.45      450
