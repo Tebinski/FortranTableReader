@@ -51,7 +51,7 @@ No existing Python library (including `pandas.read_fwf`) handles all of these ro
 Given a block of text (header + data), produce a `Table(header, rows)`:
 
 ```python
-from src.fortrantabreader.fixed_width import FixedWidthParser
+from flatparse.fixed_width import FixedWidthParser
 
 block = """ENGINE_ID   FLOW_RATE   TEMP
 ENG-001     123.45      450
@@ -221,7 +221,42 @@ Cases that require a fully custom parser (not just a subclass):
 - **Variable-width records across rows** (different rows have different schemas). This isn't really fixed-width; treat each row type as its own block.
 
 ---
-
 ## Why not just use `pandas.read_fwf()`?
 
-It can't handle most of the cases above. Specifically: it gets confused by header rows that don't follow the data column pattern, it has no support for multi-line headers, it doesn't filter decorative separator lines, and it returns a `DataFrame` rather than integrating with the framework's `Table` / `Node` / `Collection` model. Useful for clean fixed-width data; not the right tool for FORTRAN reports.
+Short answer: pandas handles the clean cases and fails the messy ones — and the messy ones are exactly why this library exists.
+
+We measured it. The `examples/pandas_vs_flatparse.py` script runs pandas and `flatparse` against eight representative cases and is runnable, so you can verify the results yourself:
+
+```bash
+uv run python examples/pandas_vs_flatparse.py
+```
+
+To be fair to pandas, every pandas attempt uses `dtype=str` (so value coercion like `001` → `1` or `0.000` → `0.0` is **not** counted against it) and the correct `sep`/reader for each case. The failures below are purely structural.
+
+| Case | pandas | flatparse |
+|---|:---:|:---:|
+| Fixed-width, left-aligned | ✅ | ✅ |
+| Fixed-width with negative numbers | ✅ | ✅ |
+| Multi-word column header (`MASS FLOW RATE`) | ❌ | ✅ |
+| Decorative separator line (`─────`) | ❌ | ✅ |
+| Two-line header (name + units) | ❌ | ✅ |
+| Comma-separated values | ✅ | ✅ |
+| Pipe-delimited table with rule row | ❌ | ✅ |
+| Whitespace-separated | ✅ | ✅ |
+| **Total** | **4/8** | **8/8** |
+
+### Where pandas breaks, and why no flag fixes it
+
+- **Multi-word headers.** `read_fwf` splits `MASS FLOW RATE` into two columns (`MASS FLOW` and `RATE`), invents a phantom column, and fills it with `NaN`. The column-to-data mapping is wrong from that point on.
+- **Decorative separator lines.** A rule like `─────────` or `----` is read as a data row. It corrupts column-width inference and merges adjacent columns.
+- **Multi-line headers.** When the second header line carries units (`[kg/s]`, `[K]`), pandas treats that line as the first row of data, leaving the first real column as `NaN`.
+- **Pipe tables with a rule row.** `read_csv(sep="|")` leaves whitespace padding inside every header and value, and ingests the `---|---|---` separator as a data row. Stripping it requires manual `skiprows` plus per-cell cleanup — and you have to know the quirk in advance.
+
+These are not tuning problems. There is no combination of `read_fwf` / `read_csv` arguments that resolves them, because the issue is structural: pandas assumes one header line, no decorative rows, and column names without internal spaces.
+
+### Two more reasons beyond correctness
+
+- **It returns a `DataFrame`, not the framework's model.** Even on the cases pandas gets right, you still have to convert to `Table` / `Node` / `Collection` and you lose the `source` provenance the framework tracks.
+- **It is a heavy dependency for a stdlib job.** `flatparse`'s core parsers import nothing outside the standard library. Pulling in pandas (and numpy) to parse a FORTRAN report is a large, slow dependency for a task that doesn't need it. pandas stays an optional extra here, used only by the comparison example.
+
+pandas is the right tool for numerical analysis of clean tabular data. It is the wrong tool for faithfully extracting structure from messy FORTRAN-style reports — which is the job `flatparse` is built for.
