@@ -3,7 +3,7 @@ Tests for CharacterDelimitedParser and its convenience subclasses.
 """
 
 import pytest
-from src.fortrantabreader.character_delimited import (
+from flatparse.character_delimited import (
     CharacterDelimitedParser,
     CommaSeparatedParser,
     TabSeparatedParser,

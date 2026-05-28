@@ -8,7 +8,7 @@ Tests for FixedWidthParser - covers the FORTRAN report variants discussed:
 """
 
 import pytest
-from src.fortrantabreader.fixed_width import FixedWidthParser
+from flatparse import FixedWidthParser
 
 
 # ---------------------------------------------------------------------------

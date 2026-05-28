@@ -5,7 +5,7 @@ or CharacterDelimitedParser.
 """
 
 import pytest
-from src.fortrantabreader.whitespace import WhitespaceParser
+from flatparse import WhitespaceParser
 
 
 # ---------------------------------------------------------------------------
